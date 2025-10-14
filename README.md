@@ -1,6 +1,6 @@
 # Foundation Models 5 - Tool
 
-![AppIcon128](Images/AppIcon128.png) This is the Starter project for the 5th video in the Foundation Models Framework series
+![AppIcon128](Images/AppIcon128.png) This is the completed source code for the 5th video in the Foundation Models Framework series
 
 Release Date: November 16, 2025
 
