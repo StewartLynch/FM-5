@@ -19,6 +19,30 @@
 import SwiftUI
 import FoundationModels
 
+@Generable
+struct GeneratedWine: Identifiable {
+    let id = UUID()
+    let variety: String
+    
+    @Guide(description: "The type of wine (Red, White, Sparkling, Rosé, Dessert")
+    let type: String
+}
+
+struct WineTypeTool: Tool {
+    let name = "wineType"
+    let description: String = "Determine the type of wine."
+    let varieties: [String]
+    @Generable
+    struct Arguments {
+        @Guide(description: "The number of varieties to select")
+        let varietyCount: Int
+    }
+    
+    func call(arguments: Arguments) async throws -> GeneratedContent {
+        let sampleArray = Array(varieties.shuffled().prefix(arguments.varietyCount))
+        return GeneratedContent(properties: ["wines": sampleArray])
+    }
+}
 
 struct WineTypesView: View {
     @Environment(\.scenePhase) var scenePhase
@@ -27,7 +51,8 @@ struct WineTypesView: View {
     @Environment(CellarManager.self) var cellar
     
     @State private var wineCount = 1
-    @State private var session = LanguageModelSession()
+    @State private var session: LanguageModelSession?
+    @State private var generatedWines: [GeneratedWine] = []
     var body: some View {
         NavigationStack {
             if manager.isModelAvailable {
@@ -38,15 +63,23 @@ struct WineTypesView: View {
                     }
                     .disabled(cellar.varieties.isEmpty)
                     Button("Get types") {
-                        
+                        generatedWines.removeAll()
+                        let prompt = "Use the 'wineType' tool to select \(wineCount) varieties and determine the type."
+                        session = LanguageModelSession(tools: [WineTypeTool(varieties: cellar.varieties)])
+                        Task {
+                            guard let session else { return }
+                            generatedWines = try await session.respond(to: prompt, generating: [GeneratedWine].self).content
+                        }
                     }
-                    .disabled(session.isResponding || cellar.varieties.isEmpty)
+                    .disabled(session?.isResponding == true || cellar.varieties.isEmpty)
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity, alignment: .trailing)
-                    
+                    ForEach(generatedWines) { wine in
+                        Text("\(wine.variety) (\(wine.type))")
+                    }
                 }
                 .overlay {
-                    if session.isResponding {
+                    if session?.isResponding == true {
                         ProgressView()
                     }
                 }

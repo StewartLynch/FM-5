@@ -21,8 +21,10 @@ import Foundation
 class CellarManager {
     var wines: [Wine] = []
     var varieties: [String] {
-        [
-            
-        ]
+        Array(Set(wines.map {$0.variety}))
+    }
+    
+    init() {
+        wines = Bundle.main.decode([Wine].self, from: "MyWines.json")
     }
 }
