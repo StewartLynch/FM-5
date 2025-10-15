@@ -24,9 +24,12 @@ struct CellarAvisor: View {
     @Environment(CellarManager.self) var cellarManager
     @Environment(\.scenePhase) var scenePhase
     @State private var question = ""
-    @State private var session = LanguageModelSession()
+    @State private var session: LanguageModelSession?
     @State private var responseContent = ""
-
+    let instructions = Instructions {
+        "Use the 'cellarTool' when the prompt asks for infomation from the cellar regarding a wine variety."
+        "For all other questions, only allow questions about wine."
+    }
       var body: some View {
           NavigationStack{
               Group {
@@ -46,7 +49,16 @@ struct CellarAvisor: View {
                                   .textFieldStyle(.roundedBorder)
                                   .submitLabel(.send)
                                   .onSubmit {
-                                      
+                                      guard let session else { return }
+                                      if !question.isEmpty {
+                                          let prompt = question.trimmingCharacters(in: .whitespacesAndNewlines)
+                                          let stream = session.streamResponse(to: prompt)
+                                          Task {
+                                              for try await partialResponse in stream {
+                                                  responseContent = manager.minimizeMarkDown(partialResponse.content)
+                                              }
+                                          }
+                                      }
                                   }
                               if !question.isEmpty {
                                   Button {
@@ -55,13 +67,13 @@ struct CellarAvisor: View {
                                       Image(systemName: "xmark.circle.fill")
                                           .foregroundStyle(.secondary)
                                   }
-                                  .disabled(session.isResponding )
+                                  .disabled(session?.isResponding == true)
                               }
                           }
                       }
                       .padding()
                       .overlay {
-                          if session.isResponding {
+                          if session?.isResponding == true {
                               ProgressView()
                           }
                       }
@@ -74,15 +86,22 @@ struct CellarAvisor: View {
               .toolbar {
                   if manager.isModelAvailable {
                       Button("New Session") {
-                          
+                          question = ""
+                          responseContent = ""
+                          session = LanguageModelSession(tools: [MyCellarTool(wines: cellarManager.wines)], instructions: instructions)
                       }
-                      .disabled(session.isResponding || responseContent.isEmpty)
+                      .disabled(session?.isResponding == true || responseContent.isEmpty)
                   }
               }
           }
           .onChange(of: scenePhase) { _, newPhase in
               if newPhase == .active {
                   manager.checkIsAvailable()
+              }
+          }
+          .task {
+              if session == nil {
+                  session = LanguageModelSession(tools: [MyCellarTool(wines: cellarManager.wines)], instructions: instructions)
               }
           }
       }
