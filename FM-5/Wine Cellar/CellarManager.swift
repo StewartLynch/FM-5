@@ -25,8 +25,4 @@ class CellarManager {
             
         ]
     }
-    init() {
-        wines = Bundle.main.decode([Wine].self, from: "MyWines.json")
-    }
-
 }
